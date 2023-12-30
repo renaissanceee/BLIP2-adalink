@@ -40,11 +40,13 @@ class Blip2T5(Blip2Base):
     def __init__(
         self,
         vit_model="eva_clip_g",
+        q_former_model="https://storage.googleapis.com/sfr-vision-language-research/LAVIS/models/BLIP2/blip2_pretrained_flant5xxl.pth",
         img_size=224,
         drop_path_rate=0,
         use_grad_checkpoint=False,
         vit_precision="fp16",
         freeze_vit=True,
+        freeze_qformer=True,
         num_query_token=32,
         t5_model="google/flan-t5-xl",
         prompt="",
@@ -69,14 +71,15 @@ class Blip2T5(Blip2Base):
             logging.info("freeze vision encoder")
 
         self.Qformer, self.query_tokens = self.init_Qformer(
-            num_query_token, self.visual_encoder.num_features
+            num_query_token, self.visual_encoder.num_features, freeze_qformer
         )
-        self.Qformer.cls = None
-        self.Qformer.bert.embeddings.word_embeddings = None
-        self.Qformer.bert.embeddings.position_embeddings = None
-        for layer in self.Qformer.bert.encoder.layer:
-            layer.output = None
-            layer.intermediate = None
+        self.load_from_pretrained(url_or_filename=q_former_model)  # load q-former weights here
+        # self.Qformer.cls = None
+        # self.Qformer.bert.embeddings.word_embeddings = None
+        # self.Qformer.bert.embeddings.position_embeddings = None
+        # for layer in self.Qformer.bert.encoder.layer:
+        #     layer.output = None
+        #     layer.intermediate = None
 
         self.t5_tokenizer = T5TokenizerFast.from_pretrained(t5_model)
         t5_config = T5Config.from_pretrained(t5_model)
@@ -88,9 +91,15 @@ class Blip2T5(Blip2Base):
         for name, param in self.t5_model.named_parameters():
             param.requires_grad = False
             param.data = param.data.bfloat16()
-
+        # linear_proj
         self.t5_proj = nn.Linear(
             self.Qformer.config.hidden_size, self.t5_model.config.hidden_size
+        )
+        # adalink
+        self.rank=16  #4,16,64,256
+        self.adalink=nn.Sequential(
+            nn.Linear(self.Qformer.config.hidden_size,self.rank),
+            nn.Linear(self.rank, self.t5_model.config.hidden_size)
         )
 
         self.max_txt_len = max_txt_len
@@ -116,7 +125,8 @@ class Blip2T5(Blip2Base):
             return_dict=True,
         )
 
-        inputs_t5 = self.t5_proj(query_output.last_hidden_state)
+        #inputs_t5 = self.t5_proj(query_output.last_hidden_state)
+        inputs_t5 = self.adalink(query_output.last_hidden_state)
         atts_t5 = torch.ones(inputs_t5.size()[:-1], dtype=torch.long).to(image.device)
 
         with self.maybe_autocast(dtype=torch.bfloat16):
@@ -351,6 +361,8 @@ class Blip2T5(Blip2Base):
     @classmethod
     def from_config(cls, cfg):
         vit_model = cfg.get("vit_model", "eva_clip_g")
+        q_former_model = cfg.get("q_former_model",
+                                 "https://storage.googleapis.com/sfr-vision-language-research/LAVIS/models/BLIP2/blip2_pretrained_flant5xxl.pth")
         img_size = cfg.get("image_size")
         num_query_token = cfg.get("num_query_token")
         t5_model = cfg.get("t5_model")
@@ -359,6 +371,7 @@ class Blip2T5(Blip2Base):
         use_grad_checkpoint = cfg.get("use_grad_checkpoint", False)
         vit_precision = cfg.get("vit_precision", "fp16")
         freeze_vit = cfg.get("freeze_vit", True)
+        freeze_qformer = cfg.get("freeze_qformer", True)
 
         prompt = cfg.get("prompt", "")
         max_txt_len = cfg.get("max_txt_len", 32)
@@ -367,11 +380,13 @@ class Blip2T5(Blip2Base):
 
         model = cls(
             vit_model=vit_model,
+            q_former_model=q_former_model,
             img_size=img_size,
             drop_path_rate=drop_path_rate,
             use_grad_checkpoint=use_grad_checkpoint,
             vit_precision=vit_precision,
             freeze_vit=freeze_vit,
+            freeze_qformer=freeze_qformer,
             num_query_token=num_query_token,
             t5_model=t5_model,
             prompt=prompt,
