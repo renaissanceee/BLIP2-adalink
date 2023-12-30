@@ -92,9 +92,9 @@ class Blip2T5(Blip2Base):
             param.requires_grad = False
             param.data = param.data.bfloat16()
         # linear_proj
-        self.t5_proj = nn.Linear(
-            self.Qformer.config.hidden_size, self.t5_model.config.hidden_size
-        )
+        # self.t5_proj = nn.Linear(
+        #     self.Qformer.config.hidden_size, self.t5_model.config.hidden_size
+        # )
         # adalink
         self.rank=16  #4,16,64,256
         self.adalink=nn.Sequential(
