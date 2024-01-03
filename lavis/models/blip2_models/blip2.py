@@ -44,7 +44,7 @@ class Blip2Base(BaseModel):
             return contextlib.nullcontext()
 
     @classmethod
-    def init_Qformer(cls, num_query_token, vision_width, cross_attention_freq=2, freeze):# add frozen
+    def init_Qformer(cls, num_query_token, vision_width, cross_attention_freq=2, freeze=True):# add frozen
         encoder_config = BertConfig.from_pretrained("bert-base-uncased")
         encoder_config.encoder_width = vision_width
         # insert cross-attention layer every other block
@@ -65,7 +65,7 @@ class Blip2Base(BaseModel):
         for layer in Qformer.bert.encoder.layer:
             layer.output = None
             layer.intermediate = None
-
+        freeze =freeze
         if freeze:
             for name, param in Qformer.named_parameters():
                 param.requires_grad = False

@@ -89,8 +89,12 @@ def main():
 
     cfg.pretty_print()
 
-    task = tasks.setup_task(cfg)
+    task = tasks.setup_task(cfg)#"vqa":class VQATask
     datasets = task.build_datasets(cfg)
+    "not download"
+    from lavis.datasets.builders import load_dataset
+    datasets = load_dataset("coco_vqa")# ok_vqa,aok_vqa,vg_vqa
+
     model = task.build_model(cfg)
 
     runner = get_runner_class(cfg)(
