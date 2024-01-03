@@ -138,7 +138,8 @@ class Blip2T5(Blip2Base):
                 return_tensors="pt",
             ).to(image.device)
             output_tokens = self.t5_tokenizer(
-                samples["text_output"],
+                #samples["text_output"],
+                samples["answer"],
                 padding="longest",
                 truncation=True,
                 max_length=self.max_txt_len,
