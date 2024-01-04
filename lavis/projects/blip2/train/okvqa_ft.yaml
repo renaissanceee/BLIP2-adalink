@@ -1,8 +1,3 @@
- # Copyright (c) 2022, salesforce.com, inc.
- # All rights reserved.
- # SPDX-License-Identifier: BSD-3-Clause
- # For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
-
 model:
   arch: blip2_t5
   model_type: pretrain_flant5xl
@@ -11,52 +6,55 @@ model:
   freeze_vit: True
 
 datasets:
-  coco_vqa: # name of the dataset builder: class COCOVQABuilder,(ok_vqa,aok_vqa,vg_vqa)
+  ok_vqa: # name of the dataset builder
     vis_processor:
         train:
-          name: "blip2_image_train"
+          name: "blip_image_train"
           image_size: 224
+          # image_size: 224
         eval:
           name: "blip_image_eval"
           image_size: 224
+          # image_size: 224
     text_processor:
         train:
           name: "blip_question"
-          # prompt: "Question: {} Short answer:"
         eval:
           name: "blip_question"
 
-
 run:
   task: vqa
-  # optimizer
+  # optimization-specific
   lr_sched: "linear_warmup_cosine_lr"
-  init_lr: 1e-5
-  min_lr: 0
-  warmup_lr: 1e-8
-  warmup_steps: 1000
-  weight_decay: 0.05
-  max_epoch: 5
+  init_lr: 3e-5
+  min_lr: 1e-5
+  weight_decay: 0.02
+  max_epoch: 7
+  # batch_size_train: 16
   batch_size_train: 1
   batch_size_eval: 8
   num_workers: 4
-  accum_grad_iters: 1
 
-  max_len: 30
-  min_len: 8
+  # inference-specific
+  max_len: 10
+  min_len: 1
+  # num_beams: 256
   num_beams: 5
+  num_ans_candidates: 128
+  # num_ans_candidates: 96
+  inference_method: "rank"
 
   seed: 42
-  output_dir: "output/BLIP2/vqav2"
+  output_dir: "output/BLIP2/OKVQA"
 
-  amp: True
+  amp: False
   resume_ckpt_path: null
 
   evaluate: False
   train_splits: ["train"]
-  valid_splits: ["val"]
   test_splits: ["test"]
 
+  # distribution-specific
   device: "cuda"
   world_size: 1
   dist_url: "env://"

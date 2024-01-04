@@ -4,11 +4,13 @@
  # For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
 
 model:
-  arch: blip2_opt
-  model_type: caption_coco_opt2.7b
+  # arch: blip2_opt
+  # model_type: caption_coco_opt2.7b
+  arch: blip2_t5
+  model_type: caption_coco_flant5xl # pretrain_flant5xl
   load_finetuned: False
   use_grad_checkpoint: True
-  freeze_vit: False
+  freeze_vit: True
 
 datasets:
   coco_caption: # name of the dataset builder
@@ -39,7 +41,7 @@ run:
   warmup_steps: 1000
   weight_decay: 0.05
   max_epoch: 5
-  batch_size_train: 16
+  batch_size_train: 1
   batch_size_eval: 8
   num_workers: 4
   accum_grad_iters: 1
