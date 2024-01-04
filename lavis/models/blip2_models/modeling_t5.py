@@ -526,6 +526,8 @@ class T5Attention(nn.Module):
             elif past_key_value is None:
                 # cross-attn
                 # (batch_size, n_heads, seq_length, dim_per_head)
+
+                #[1, 39, 2048]->[1, 32, 39, 64]
                 hidden_states = shape(proj_layer(key_value_states))
 
             if past_key_value is not None:
@@ -640,6 +642,7 @@ class T5LayerSelfAttention(nn.Module):
         output_attentions=False,
     ):
         normed_hidden_states = self.layer_norm(hidden_states)
+        #print("self-att: ",normed_hidden_states.size())
         attention_output = self.SelfAttention(
             normed_hidden_states,
             mask=attention_mask,
@@ -676,6 +679,7 @@ class T5LayerCrossAttention(nn.Module):
         output_attentions=False,
     ):
         normed_hidden_states = self.layer_norm(hidden_states)
+        #print("cross-att: ",normed_hidden_states.size())
         attention_output = self.EncDecAttention(
             normed_hidden_states,
             mask=attention_mask,
@@ -1033,6 +1037,8 @@ class T5Stack(T5PreTrainedModel):
         output_hidden_states=None,
         return_dict=None,
     ):
+        # if inputs_embeds is not None:
+        #     print("T5 input:",inputs_embeds.size())#[1, 37, 2048]
         # Model parallel
         if self.model_parallel:
             torch.cuda.set_device(self.first_device)
@@ -1145,9 +1151,10 @@ class T5Stack(T5PreTrainedModel):
         all_cross_attentions = () if (output_attentions and self.is_decoder) else None
         position_bias = None
         encoder_decoder_position_bias = None
-
+        
         hidden_states = self.dropout(inputs_embeds)
-
+        # print("enc/dec input: ",hidden_states.size())
+        
         for i, (layer_module, past_key_value) in enumerate(
             zip(self.block, past_key_values)
         ):
@@ -1256,11 +1263,10 @@ class T5Stack(T5PreTrainedModel):
 
         hidden_states = self.final_layer_norm(hidden_states)
         hidden_states = self.dropout(hidden_states)
-
         # Add last layer
         if output_hidden_states:
             all_hidden_states = all_hidden_states + (hidden_states,)
-
+        # print("enc/dec output:",hidden_states.size())
         if not return_dict:
             return tuple(
                 v
@@ -1824,6 +1830,8 @@ class T5ForConditionalGeneration(T5PreTrainedModel):
         ):
             # get decoder inputs from shifting lm labels to the right
             decoder_input_ids = self._shift_right(labels)
+            # print("decoder_input_ids:",decoder_input_ids.size())
+            
 
         # Set device for model parallelism
         if self.model_parallel:
@@ -1838,13 +1846,14 @@ class T5ForConditionalGeneration(T5PreTrainedModel):
                     self.decoder.first_device
                 )
 
-        # Decode
+        # Decode 
+        # print("decoder_input_ids:",decoder_input_ids.size())     ##[1,2]->#[5,5]
         decoder_outputs = self.decoder(
-            input_ids=decoder_input_ids,
+            input_ids=decoder_input_ids,#[bz,2]
             attention_mask=decoder_attention_mask,
             inputs_embeds=decoder_inputs_embeds,
             past_key_values=past_key_values,
-            encoder_hidden_states=hidden_states,
+            encoder_hidden_states=hidden_states,#[bz,sequ_len,dim]
             encoder_attention_mask=attention_mask,
             head_mask=decoder_head_mask,
             cross_attn_head_mask=cross_attn_head_mask,

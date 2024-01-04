@@ -92,11 +92,12 @@ class Blip2T5(Blip2Base):
             param.requires_grad = False
             param.data = param.data.bfloat16()
         # linear_proj
-        # self.t5_proj = nn.Linear(
-        #     self.Qformer.config.hidden_size, self.t5_model.config.hidden_size
-        # )
+        self.t5_proj = nn.Linear(
+            self.Qformer.config.hidden_size, self.t5_model.config.hidden_size
+        )
         # adalink
         self.rank=16  #4,16,64,256
+        logging.info("adalink rank= {}".format(self.rank))
         self.adalink=nn.Sequential(
             nn.Linear(self.Qformer.config.hidden_size,self.rank),
             nn.Linear(self.rank, self.t5_model.config.hidden_size)
@@ -125,13 +126,17 @@ class Blip2T5(Blip2Base):
             return_dict=True,
         )
 
-        #inputs_t5 = self.t5_proj(query_output.last_hidden_state)
+        # inputs_t5 = self.t5_proj(query_output.last_hidden_state)#[bz,32,2048]
         inputs_t5 = self.adalink(query_output.last_hidden_state)
         atts_t5 = torch.ones(inputs_t5.size()[:-1], dtype=torch.long).to(image.device)
 
         with self.maybe_autocast(dtype=torch.bfloat16):
+            # print(samples.keys())
+            # vqav2 ['image', 'text_input', 'answer', 'weight', 'n_answers', 'epoch', 'num_iters_per_epoch', 'iters']
+            # coco_caption ['image', 'text_input', 'image_id', 'epoch', 'num_iters_per_epoch', 'iters']
             input_tokens = self.t5_tokenizer(
-                samples["text_input"],
+                # samples["text_input"],
+                "a photo of ",
                 padding="longest",
                 truncation=True,
                 max_length=self.max_txt_len,
@@ -139,7 +144,8 @@ class Blip2T5(Blip2Base):
             ).to(image.device)
             output_tokens = self.t5_tokenizer(
                 #samples["text_output"],
-                samples["answer"],
+                #samples["answer"],
+                samples["text_input"],
                 padding="longest",
                 truncation=True,
                 max_length=self.max_txt_len,
