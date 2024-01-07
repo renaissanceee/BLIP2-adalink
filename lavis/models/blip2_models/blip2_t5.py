@@ -155,15 +155,29 @@ class Blip2T5(Blip2Base):
                 return_tensors="pt",
             ).to(image.device)# 'input_ids','attention_mask' 全1
 
-            encoder_atts = torch.cat([atts_t5, input_tokens.attention_mask], dim=1)
-            # pad to -100
+            batch_input_tokens_input_ids = []
+            batch_input_tokens_atts = []
+            batch_atts_t5 = []
+            batch_inputs_t5 = []
+
+            for b, n in enumerate(samples["n_answers"]):
+                batch_input_tokens_input_ids += [input_tokens.input_ids[b]] * n
+                batch_input_tokens_atts += [input_tokens.attention_mask[b]] * n
+                batch_atts_t5 += [atts_t5[b]] * n
+                batch_inputs_t5 += [inputs_t5[b]] * n
+            batch_input_tokens_input_ids = torch.stack(batch_input_tokens_input_ids, dim=0)
+            batch_input_tokens_atts = torch.stack(batch_input_tokens_atts, dim=0)
+            batch_atts_t5 = torch.stack(batch_atts_t5, dim=0)
+            batch_inputs_t5 = torch.stack(batch_inputs_t5, dim=0)
+            encoder_atts = torch.cat([batch_atts_t5, batch_input_tokens_atts], dim=1)
+
             targets = output_tokens.input_ids.masked_fill(
                 output_tokens.input_ids == self.t5_tokenizer.pad_token_id, -100
             )
 
-            inputs_embeds = self.t5_model.encoder.embed_tokens(input_tokens.input_ids)# [1, 7, 2048]->2048->[1, 7, 2048]
+            inputs_embeds = self.t5_model.encoder.embed_tokens(batch_input_tokens_input_ids)
             inputs_embeds = self.adalink_T(inputs_embeds)
-            inputs_embeds = torch.cat([inputs_t5, inputs_embeds], dim=1)     # [1, 39, 2048]
+            inputs_embeds = torch.cat([batch_inputs_t5, inputs_embeds], dim=1)
 
             outputs = self.t5_model(
                 inputs_embeds=inputs_embeds,
@@ -347,6 +361,7 @@ class Blip2T5(Blip2Base):
             return answer
 
         return [apply(answer) for answer in answers]
+
 
     @property
     def lemmatizer(self):
