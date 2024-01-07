@@ -96,13 +96,16 @@ class Blip2T5(Blip2Base):
             self.Qformer.config.hidden_size, self.t5_model.config.hidden_size
         )
         # adalink
-        self.rank=16  #4,16,64,256
+        self.rank=4  #4,16,64,256
         logging.info("adalink rank= {}".format(self.rank))
-        self.adalink=nn.Sequential(
-            nn.Linear(self.Qformer.config.hidden_size,self.rank),
-            nn.Linear(self.rank, self.t5_model.config.hidden_size)
+        self.adalink_I=nn.Sequential(
+            nn.Linear(self.Qformer.config.hidden_size,self.rank),# 768->4
+            nn.Linear(self.rank, self.t5_model.config.hidden_size)# 4->2048
         )
-
+        self.adalink_T=nn.Sequential(
+            nn.Linear(self.t5_model.config.hidden_size,self.rank),# 2048->4
+            nn.Linear(self.rank, self.t5_model.config.hidden_size)# 4->2048
+        )
         self.max_txt_len = max_txt_len
         self.prompt = prompt
 
@@ -127,7 +130,7 @@ class Blip2T5(Blip2Base):
         )
 
         # inputs_t5 = self.t5_proj(query_output.last_hidden_state)#[bz,32,2048]
-        inputs_t5 = self.adalink(query_output.last_hidden_state)
+        inputs_t5 = self.adalink_I(query_output.last_hidden_state)#[1, 32, 768]->768->[1, 32, 768]
         atts_t5 = torch.ones(inputs_t5.size()[:-1], dtype=torch.long).to(image.device)
 
         with self.maybe_autocast(dtype=torch.bfloat16):
@@ -135,31 +138,32 @@ class Blip2T5(Blip2Base):
             # vqav2 ['image', 'text_input', 'answer', 'weight', 'n_answers', 'epoch', 'num_iters_per_epoch', 'iters']
             # coco_caption ['image', 'text_input', 'image_id', 'epoch', 'num_iters_per_epoch', 'iters']
             input_tokens = self.t5_tokenizer(
-                # samples["text_input"],
-                "a photo of ",
+                samples["text_input"],#['where are the people standing?']
+                # "a photo of ",
                 padding="longest",
                 truncation=True,
                 max_length=self.max_txt_len,
                 return_tensors="pt",
             ).to(image.device)
             output_tokens = self.t5_tokenizer(
+                samples["answer"],#['balcony', 'porch', 'deck', 'platform', 'tower']
                 #samples["text_output"],
-                #samples["answer"],
-                samples["text_input"],
+                #samples["text_input"],
                 padding="longest",
                 truncation=True,
                 max_length=self.max_txt_len,
                 return_tensors="pt",
-            ).to(image.device)
+            ).to(image.device)# 'input_ids','attention_mask' 全1
 
             encoder_atts = torch.cat([atts_t5, input_tokens.attention_mask], dim=1)
-
+            # pad to -100
             targets = output_tokens.input_ids.masked_fill(
                 output_tokens.input_ids == self.t5_tokenizer.pad_token_id, -100
             )
 
-            inputs_embeds = self.t5_model.encoder.embed_tokens(input_tokens.input_ids)
-            inputs_embeds = torch.cat([inputs_t5, inputs_embeds], dim=1)
+            inputs_embeds = self.t5_model.encoder.embed_tokens(input_tokens.input_ids)# [1, 7, 2048]->2048->[1, 7, 2048]
+            inputs_embeds = self.adalink_T(inputs_embeds)
+            inputs_embeds = torch.cat([inputs_t5, inputs_embeds], dim=1)     # [1, 39, 2048]
 
             outputs = self.t5_model(
                 inputs_embeds=inputs_embeds,
