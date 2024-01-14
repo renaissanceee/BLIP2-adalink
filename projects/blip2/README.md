@@ -26,7 +26,7 @@ The [config files](https://github.com/salesforce/LAVIS/tree/main/lavis/projects/
 ### env
 recommand: torch 2.0.0+cu118 
 ```python
-python-m venv env %create
+python -m venv env %create
 .\env\Scripts\activate %activate
 (linux)source .\env\Scripts\activate %activate
 pip install -r requirements.txt
