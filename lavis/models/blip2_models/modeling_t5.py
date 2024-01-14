@@ -1830,7 +1830,10 @@ class T5ForConditionalGeneration(T5PreTrainedModel):
         ):
             # get decoder inputs from shifting lm labels to the right
             decoder_input_ids = self._shift_right(labels)
-            # print("decoder_input_ids:",decoder_input_ids.size())
+            # labels[3, 9, 1202, 13, 385, 872, 6331, 33, 590, 8,13818, 3023, 1]
+            # decoder_input_ids[0, 3, 9, 1202, 13, 385, 872, 6331, 33, 590, 8,13818, 3023]
+
+
             
 
         # Set device for model parallelism
@@ -1847,7 +1850,7 @@ class T5ForConditionalGeneration(T5PreTrainedModel):
                 )
 
         # Decode 
-        # print("decoder_input_ids:",decoder_input_ids.size())     ##[1,2]->#[5,5]
+        # print("decoder_input_ids:",decoder_input_ids)     ##[1,2]->#[5,5]
         decoder_outputs = self.decoder(
             input_ids=decoder_input_ids,#[bz,2]
             attention_mask=decoder_attention_mask,

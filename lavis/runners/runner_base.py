@@ -421,6 +421,8 @@ class RunnerBase:
 
             dist.barrier()
 
+        #change here to comment# 
+        cur_epoch=0
         # save last checkpoint
         if self.save_last and not self.evaluate_only:
             self._save_checkpoint(cur_epoch, is_best=False)
@@ -432,6 +434,7 @@ class RunnerBase:
         total_time = time.time() - start_time
         total_time_str = str(datetime.timedelta(seconds=int(total_time)))
         logging.info("Training time {}".format(total_time_str))
+            
 
     def evaluate(self, cur_epoch="best", skip_reload=False):
         test_logs = dict()
@@ -635,6 +638,7 @@ class RunnerBase:
         """
         Resume from a checkpoint.
         """
+        print(url_or_filename)
         if is_url(url_or_filename):
             cached_file = download_cached_file(
                 url_or_filename, check_hash=False, progress=True
@@ -646,7 +650,8 @@ class RunnerBase:
             raise RuntimeError("checkpoint url or path is invalid")
 
         state_dict = checkpoint["model"]
-        self.unwrap_dist_model(self.model).load_state_dict(state_dict)
+        #self.unwrap_dist_model(self.model).load_state_dict(state_dict)
+        self.unwrap_dist_model(self.model).load_state_dict(state_dict, strict=False)
 
         self.optimizer.load_state_dict(checkpoint["optimizer"])
         if self.scaler and "scaler" in checkpoint:

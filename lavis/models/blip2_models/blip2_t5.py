@@ -96,7 +96,8 @@ class Blip2T5(Blip2Base):
             self.Qformer.config.hidden_size, self.t5_model.config.hidden_size
         )
         # adalink
-        self.rank=4  #4,16,64,256
+        self.rank=16  #4,16,64,256
+        self.use_adalink_I,self.use_adalink_T = True, True
         logging.info("adalink rank= {}".format(self.rank))
         self.adalink_I=nn.Sequential(
             nn.Linear(self.Qformer.config.hidden_size,self.rank),# 768->4
@@ -128,9 +129,11 @@ class Blip2T5(Blip2Base):
             encoder_attention_mask=image_atts,
             return_dict=True,
         )
-
-        # inputs_t5 = self.t5_proj(query_output.last_hidden_state)#[bz,32,2048]
-        inputs_t5 = self.adalink_I(query_output.last_hidden_state)#[1, 32, 768]->768->[1, 32, 768]
+        if self.use_adalink_I:
+            inputs_t5 = self.adalink_I(query_output.last_hidden_state)#[1, 32, 768]->768->[1, 32, 768]
+        else:
+            inputs_t5 = self.t5_proj(query_output.last_hidden_state)#[bz,32,2048]
+        
         atts_t5 = torch.ones(inputs_t5.size()[:-1], dtype=torch.long).to(image.device)
 
         with self.maybe_autocast(dtype=torch.bfloat16):
@@ -154,21 +157,22 @@ class Blip2T5(Blip2Base):
                 max_length=self.max_txt_len,
                 return_tensors="pt",
             ).to(image.device)# 'input_ids','attention_mask' 全1
-
+        ##################################
             batch_input_tokens_input_ids = []
             batch_input_tokens_atts = []
             batch_atts_t5 = []
             batch_inputs_t5 = []
-
+            ##[1, 32, 2048]->[7, 32, 2048]
             for b, n in enumerate(samples["n_answers"]):
                 batch_input_tokens_input_ids += [input_tokens.input_ids[b]] * n
                 batch_input_tokens_atts += [input_tokens.attention_mask[b]] * n
                 batch_atts_t5 += [atts_t5[b]] * n
                 batch_inputs_t5 += [inputs_t5[b]] * n
+
             batch_input_tokens_input_ids = torch.stack(batch_input_tokens_input_ids, dim=0)
             batch_input_tokens_atts = torch.stack(batch_input_tokens_atts, dim=0)
             batch_atts_t5 = torch.stack(batch_atts_t5, dim=0)
-            batch_inputs_t5 = torch.stack(batch_inputs_t5, dim=0)
+            batch_inputs_t5 = torch.stack(batch_inputs_t5, dim=0)#[7, 32, 2048]
             encoder_atts = torch.cat([batch_atts_t5, batch_input_tokens_atts], dim=1)
 
             targets = output_tokens.input_ids.masked_fill(
@@ -176,8 +180,9 @@ class Blip2T5(Blip2Base):
             )
 
             inputs_embeds = self.t5_model.encoder.embed_tokens(batch_input_tokens_input_ids)
-            inputs_embeds = self.adalink_T(inputs_embeds)
-            inputs_embeds = torch.cat([batch_inputs_t5, inputs_embeds], dim=1)
+            if self.use_adalink_T:
+                inputs_embeds = self.adalink_T(inputs_embeds)#[7, 8, 2048]
+            inputs_embeds = torch.cat([batch_inputs_t5, inputs_embeds], dim=1)# [7, 32+8, 2048] 
 
             outputs = self.t5_model(
                 inputs_embeds=inputs_embeds,
@@ -186,9 +191,15 @@ class Blip2T5(Blip2Base):
                 return_dict=True,
                 labels=targets,
             )
-            loss = outputs.loss
 
+            loss = outputs.loss
+            # wandb
+            import wandb
+            wandb.init(project="blip2", name="adalink_rank16")      
+            wandb.log({"train_loss": loss})   
+            
             return {"loss": loss}
+
 
     @torch.no_grad()
     def generate(
@@ -361,7 +372,6 @@ class Blip2T5(Blip2Base):
             return answer
 
         return [apply(answer) for answer in answers]
-
 
     @property
     def lemmatizer(self):

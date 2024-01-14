@@ -9,13 +9,11 @@ datasets:
   ok_vqa: # name of the dataset builder
     vis_processor:
         train:
-          name: "blip_image_train"
+          name: "blip2_image_train"
           image_size: 224
-          # image_size: 224
         eval:
           name: "blip_image_eval"
           image_size: 224
-          # image_size: 224
     text_processor:
         train:
           name: "blip_question"
@@ -29,33 +27,45 @@ run:
   init_lr: 3e-5
   min_lr: 1e-5
   weight_decay: 0.02
-  max_epoch: 7
+  max_epoch: 6
   # batch_size_train: 16
-  batch_size_train: 1
+  batch_size_train: 4
   batch_size_eval: 8
-  num_workers: 4
+  num_workers: 1
 
   # inference-specific
   max_len: 10
   min_len: 1
-  # num_beams: 256
   num_beams: 5
-  num_ans_candidates: 128
-  # num_ans_candidates: 96
+  # num_ans_candidates: 128
+  num_ans_candidates: 96
   inference_method: "rank"
 
   seed: 42
-  output_dir: "output/BLIP2/OKVQA"
+  output_dir: "output/BLIP2/OKVQA/adalink_16"
 
   amp: False
   resume_ckpt_path: null
+  # linear
+  # resume_ckpt_path: "C:/bsd/LAVIS/lavis/output/BLIP2/OKVQA/20240110152/checkpoint_0.pth"
+  # resume_ckpt_path: "C:/bsd/LAVIS/lavis/output/BLIP2/OKVQA/20240110203/checkpoint_1.pth"
+  # resume_ckpt_path: "C:/bsd/LAVIS/lavis/output/BLIP2/OKVQA/20240110211/checkpoint_2.pth"
+  # resume_ckpt_path: "C:/bsd/LAVIS/lavis/output/BLIP2/OKVQA/20240110220/checkpoint_3.pth"
+  # resume_ckpt_path: "C:/bsd/LAVIS/lavis/output/BLIP2/OKVQA/20240111074/checkpoint_4.pth"
+  # adalink
+  # resume_ckpt_path: "C:/bsd/LAVIS/lavis/output/BLIP2/OKVQA/20240111213/checkpoint_0.pth"
+  # resume_ckpt_path: "C:/bsd/LAVIS/lavis/output/BLIP2/OKVQA/20240111221/checkpoint_1.pth"
+   
+
 
   evaluate: False
   train_splits: ["train"]
   test_splits: ["test"]
 
+  
+
   # distribution-specific
   device: "cuda"
   world_size: 1
   dist_url: "env://"
-  distributed: True
+  distributed: False

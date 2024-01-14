@@ -9,6 +9,7 @@ model:
   load_finetuned: False
   use_grad_checkpoint: True
   freeze_vit: True
+  freeze_qformer: True
 
 datasets:
   coco_vqa: # name of the dataset builder: class COCOVQABuilder,(ok_vqa,aok_vqa,vg_vqa)
@@ -37,7 +38,7 @@ run:
   warmup_steps: 1000
   weight_decay: 0.05
   max_epoch: 5
-  batch_size_train: 1
+  batch_size_train: 4
   batch_size_eval: 8
   num_workers: 4
   accum_grad_iters: 1
