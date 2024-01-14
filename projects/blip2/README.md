@@ -36,7 +36,7 @@ pip install -r requirements.txt
 python train.py --cfg-path lavis/projects/blip2/train/okvqa_ft.yaml
 ```
 ### adjust param
-./lavis/projects/blip2/train/okvqa_ft.yaml
+```./lavis/projects/blip2/train/okvqa_ft.yaml```
 
 1.how to set resume:```run.resume_ckpt_path=null```
 
@@ -44,7 +44,7 @@ python train.py --cfg-path lavis/projects/blip2/train/okvqa_ft.yaml
 
 3.how to set batch_size:```run.batch_size_train=16```
 
-./lavis/models/blip2_t5.py
+```./lavis/models/blip2_t5.py```
 
 1.freeze_vit,freeze_qformer:```line 48,49```
 
