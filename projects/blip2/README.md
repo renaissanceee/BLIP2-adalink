@@ -25,12 +25,16 @@ The [config files](https://github.com/salesforce/LAVIS/tree/main/lavis/projects/
 
 ### env
 recommand: torch 2.0.0+cu118 
-```python -m venv env %create```
+```python
+python-m venv env %create
 .\env\Scripts\activate %activate
 (linux)source .\env\Scripts\activate %activate
-pip install -r requirements.txt```
+pip install -r requirements.txt
+```
 ### run
+```python
 python train.py --cfg-path lavis/projects/blip2/train/okvqa_ft.yaml
+```
 ### adjust param
 ./lavis/projects/blip2/train/okvqa_ft.yaml
 
