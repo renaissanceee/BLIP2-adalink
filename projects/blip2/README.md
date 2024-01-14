@@ -22,7 +22,11 @@ Finetune for image captioning:
 The [config files](https://github.com/salesforce/LAVIS/tree/main/lavis/projects/blip2/train) can be modified for customized training.
 
 ## hints for adalink version
-
+### git
+current commit in meng branch
+```python
+git clone -b meng https://github.com/YaoZ720/VLM_Fed.git
+```
 ### env
 recommand: torch 2.0.0+cu118 
 ```python
