@@ -28,7 +28,7 @@ current commit in meng branch
 git clone -b meng https://github.com/YaoZ720/VLM_Fed.git
 ```
 ### env
-recommand: torch 2.0.0+cu118 
+recommend: torch 2.0.0+cu118 
 ```python
 python -m venv env %create
 .\env\Scripts\activate %activate
