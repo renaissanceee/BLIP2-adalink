@@ -35,6 +35,11 @@ python -m venv env %create
 (linux)source .\env\Scripts\activate %activate
 pip install -r requirements.txt
 ```
+### automatic download
+```python
+cd lavis/datasets/download_scripts && python download_coco.py
+```
+
 ### run
 ```python
 python train.py --cfg-path lavis/projects/blip2/train/okvqa_ft.yaml
