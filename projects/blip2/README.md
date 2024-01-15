@@ -48,11 +48,14 @@ sbatch run_scripts/blip2/train/train_okvqa.sh
 
 ```
 ### adjust param
-```./lavis/projects/blip2/train/okvqa_ft.yaml```
+"./lavis/projects/blip2/train/okvqa_ft.yaml"
+
+```
 model: freeze_qformer, freeze_linear, ada_rank
 run: resume_ckpt_path, output_dir,batch_size_train
+```
+"./lavis/models/blip2_t5.py"
 
-```./lavis/models/blip2_t5.py```
 1.how to set linear or adalink:```line 100```
 
 2.how to set wandb:```line 198```
