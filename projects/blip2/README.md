@@ -43,24 +43,18 @@ cd lavis/datasets/download_scripts && python download_coco.py
 ### run
 ```python
 python train.py --cfg-path lavis/projects/blip2/train/okvqa_ft.yaml
+# for distributed train
+sbatch run_scripts/blip2/train/train_okvqa.sh
+
 ```
 ### adjust param
 ```./lavis/projects/blip2/train/okvqa_ft.yaml```
-
-1.how to set resume:```run.resume_ckpt_path=null```
-
-2.where to save ckpt:```run.output_dir="output/BLIP2/OKVQA"```
-
-3.how to set batch_size:```run.batch_size_train=16```
+model: freeze_qformer, freeze_linear, ada_rank
+run: resume_ckpt_path, output_dir,batch_size_train
 
 ```./lavis/models/blip2_t5.py```
+1.how to set linear or adalink:```line 100```
 
-1.freeze_vit,freeze_qformer:```line 48,49```
+2.how to set wandb:```line 198```
 
-2.how to set rank of adalink:```line 99```
-
-3.how to set linear or adalink:```line 100```
-
-4.how to set wandb:```line 198```
-
-5.how to change input_tokens for vqa/caption:```line 143,151```
+3.how to change input_tokens for vqa/caption:```line 143,151```
