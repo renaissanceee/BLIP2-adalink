@@ -46,12 +46,14 @@ class Blip2T5(Blip2Base):
         use_grad_checkpoint=False,
         vit_precision="fp16",
         freeze_vit=True,
+        freeze_linear=True,
         freeze_qformer=True,
         num_query_token=32,
         t5_model="google/flan-t5-xl",
         prompt="",
         max_txt_len=32,
         apply_lemmatizer=False,
+        rank=16,
     ):
         """
         apply_lemmatizer: when set to True, postprocess predict_answers() result with lemmas.
@@ -87,20 +89,23 @@ class Blip2T5(Blip2Base):
         self.t5_model = T5ForConditionalGeneration.from_pretrained(
             t5_model, config=t5_config
         )
-
+        
         for name, param in self.t5_model.named_parameters():
             param.requires_grad = False
             param.data = param.data.bfloat16()
-        # linear_proj
+        # linear_proj for qformer: frozen
         self.t5_proj = nn.Linear(
             self.Qformer.config.hidden_size, self.t5_model.config.hidden_size
         )
+        if freeze_linear:
+            for param in self.t5_proj.parameters():
+                param.requires_grad = False        
         # adalink
-        self.rank=16  #4,16,64,256
-        self.use_adalink_I,self.use_adalink_T = True, True
+        self.rank=rank  # 4,16,64,256
+        self.use_adalink_I,self.use_adalink_T = False, False #True, True  
         logging.info("adalink rank= {}".format(self.rank))
         self.adalink_I=nn.Sequential(
-            nn.Linear(self.Qformer.config.hidden_size,self.rank),# 768->4
+            nn.Linear(self.t5_model.config.hidden_size,self.rank),# 2048->4
             nn.Linear(self.rank, self.t5_model.config.hidden_size)# 4->2048
         )
         self.adalink_T=nn.Sequential(
@@ -129,11 +134,10 @@ class Blip2T5(Blip2Base):
             encoder_attention_mask=image_atts,
             return_dict=True,
         )
-        if self.use_adalink_I:
-            inputs_t5 = self.adalink_I(query_output.last_hidden_state)#[1, 32, 768]->768->[1, 32, 768]
-        else:
-            inputs_t5 = self.t5_proj(query_output.last_hidden_state)#[bz,32,2048]
         
+        inputs_t5 = self.t5_proj(query_output.last_hidden_state)#[bz,32,2048]
+        if self.use_adalink_I:
+            inputs_t5 = inputs_t5 + self.adalink_I(inputs_t5)#[1, 32, 2048]->2048->[1, 32, 2048]  
         atts_t5 = torch.ones(inputs_t5.size()[:-1], dtype=torch.long).to(image.device)
 
         with self.maybe_autocast(dtype=torch.bfloat16):
@@ -181,7 +185,7 @@ class Blip2T5(Blip2Base):
 
             inputs_embeds = self.t5_model.encoder.embed_tokens(batch_input_tokens_input_ids)
             if self.use_adalink_T:
-                inputs_embeds = self.adalink_T(inputs_embeds)#[7, 8, 2048]
+                inputs_embeds = inputs_embeds + self.adalink_T(inputs_embeds)#[7, 8, 2048]
             inputs_embeds = torch.cat([batch_inputs_t5, inputs_embeds], dim=1)# [7, 32+8, 2048] 
 
             outputs = self.t5_model(
@@ -195,7 +199,9 @@ class Blip2T5(Blip2Base):
             loss = outputs.loss
             # wandb
             import wandb
-            wandb.init(project="blip2", name="adalink_rank16")      
+            wandb.login(key="3d3950bf0197bb6a4f59246bd3ddeacd1ae2617d")
+            # wandb.init(project="blip2_aokvqa", name="base")      
+            wandb.init(project="blip2_okvqa", name="qformer") 
             wandb.log({"train_loss": loss})   
             
             return {"loss": loss}
@@ -407,7 +413,9 @@ class Blip2T5(Blip2Base):
         use_grad_checkpoint = cfg.get("use_grad_checkpoint", False)
         vit_precision = cfg.get("vit_precision", "fp16")
         freeze_vit = cfg.get("freeze_vit", True)
+        freeze_linear = cfg.get("freeze_linear", True)
         freeze_qformer = cfg.get("freeze_qformer", True)
+        rank = cfg.get("ada_rank", 16)
 
         prompt = cfg.get("prompt", "")
         max_txt_len = cfg.get("max_txt_len", 32)
@@ -422,12 +430,14 @@ class Blip2T5(Blip2Base):
             use_grad_checkpoint=use_grad_checkpoint,
             vit_precision=vit_precision,
             freeze_vit=freeze_vit,
+            freeze_linear=freeze_linear,
             freeze_qformer=freeze_qformer,
             num_query_token=num_query_token,
             t5_model=t5_model,
             prompt=prompt,
             max_txt_len=max_txt_len,
             apply_lemmatizer=apply_lemmatizer,
+            rank=rank
         )
         model.load_checkpoint_from_config(cfg)
 

@@ -383,6 +383,7 @@ class BertLayer(nn.Module):
         self.seq_len_dim = 1
         self.attention = BertAttention(config)
         self.layer_num = layer_num
+        # print(self.config)
         if (
             self.config.add_cross_attention
             and layer_num % self.config.cross_attention_freq == 0
