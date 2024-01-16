@@ -37,7 +37,8 @@ pip install -r requirements.txt
 ```
 ### automatic download
 ```python
-cd lavis/datasets/download_scripts && python download_coco.py
+cp ./lavis/datasets/download_scripts/download_coco.py .
+python download_coco.py
 ```
 
 ### run
