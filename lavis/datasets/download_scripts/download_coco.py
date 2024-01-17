@@ -32,20 +32,12 @@ def download_datasets(root, url):
 
 if __name__ == "__main__":
 
-    config_path = get_abs_path("configs/datasets/coco/defaults_cap.yaml")
-
-    storage_dir = OmegaConf.load(
-        config_path
-    ).datasets.coco_caption.build_info.images.storage
-    
-    # download_dir = Path(get_cache_path(storage_dir)).parent / "download"
-    download_dir = "./lavis/dataset/download"
+    download_dir = Path("./lavis/dataset/download")
     os.makedirs(download_dir, exist_ok=True)
-    # storage_dir = Path(get_cache_path(storage_dir))
-    storage_dir = "./lavis/dataset/" 
-    if storage_dir.exists():
-        print(f"Dataset already exists at {storage_dir}. Aborting.")
-        exit(0)
+    storage_dir = Path("./lavis/dataset/" )
+    # if storage_dir.exists():
+    #     print(f"Dataset already exists at {storage_dir}. Aborting.")
+    #     exit(0)
 
     try:
         for k, v in DATA_URL.items():
