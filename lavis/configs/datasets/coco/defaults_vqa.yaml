@@ -6,7 +6,7 @@
 datasets:
   coco_vqa:
     # data_dir: ${env.data_dir}/datasets
-    data_dir: /nfs/data2/jiameng/lavis/
+    data_dir: /nfs/data2/jiameng/lavis/dataset
     data_type: images # [images|videos|features]
 
     build_info:
