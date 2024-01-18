@@ -133,6 +133,8 @@ class BaseDatasetBuilder:
                     storage_path = os.path.join(cache_root, storage_path)
 
                 dirname = os.path.dirname(storage_path)
+                dirname = "/nfs/data2/jiameng/lavis/dataset/okvqa/annotations"
+                #print(dirname)
                 if not os.path.exists(dirname):
                     os.makedirs(dirname)
 

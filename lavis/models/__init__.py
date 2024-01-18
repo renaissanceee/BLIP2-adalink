@@ -41,7 +41,7 @@ from lavis.models.blip2_models.blip2_t5_instruct import Blip2T5Instruct
 from lavis.models.blip2_models.blip2_vicuna_instruct import Blip2VicunaInstruct
 from lavis.models.blip2_models.blip2_vicuna_xinstruct import Blip2VicunaXInstruct
 
-from lavis.models.blip_diffusion_models.blip_diffusion import BlipDiffusion
+
 
 from lavis.models.pnp_vqa_models.pnp_vqa import PNPVQA
 from lavis.models.pnp_vqa_models.pnp_unifiedqav2_fid import PNPUnifiedQAv2FiD
@@ -70,7 +70,6 @@ __all__ = [
     "BlipFeatureExtractor",
     "BlipCaption",
     "BlipClassification",
-    "BlipDiffusion",
     "BlipITM",
     "BlipNLVR",
     "BlipPretrain",

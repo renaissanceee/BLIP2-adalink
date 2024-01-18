@@ -140,7 +140,8 @@ class Blip2T5(Blip2Base):
             inputs_t5 = inputs_t5 + self.adalink_I(inputs_t5)#[1, 32, 2048]->2048->[1, 32, 2048]  
         atts_t5 = torch.ones(inputs_t5.size()[:-1], dtype=torch.long).to(image.device)
 
-        with self.maybe_autocast(dtype=torch.bfloat16):
+        # with self.maybe_autocast(dtype=torch.bfloat16):
+        with self.maybe_autocast(dtype=torch.float16):
             # print(samples.keys())
             # vqav2 ['image', 'text_input', 'answer', 'weight', 'n_answers', 'epoch', 'num_iters_per_epoch', 'iters']
             # coco_caption ['image', 'text_input', 'image_id', 'epoch', 'num_iters_per_epoch', 'iters']

@@ -96,26 +96,15 @@ class VQATask(BaseTask):
         datasets = super().build_datasets(cfg)
 
         # get question file, annotation file and anwser list in COCO format
-        for ds_name, dataset in datasets.items():
-            for split in self.valid_splits:
-                if split not in dataset:
-                    print(f"Split {split} not found in {ds_name}.")
+        for dataset in datasets.values():
+            for split in dataset:
                 if (
                     hasattr(dataset[split], "coco_fmt_qust_file")
                     and dataset[split].coco_fmt_qust_file is not None
                 ):
                     self.ques_files[split] = dataset[split].coco_fmt_qust_file
                     self.anno_files[split] = dataset[split].coco_fmt_anno_file
-                else:
-                    if split not in self.ques_files: # precomputed and passed in task builder
-                        self.ques_files[split] = os.path.join(registry.get_path("cache_root"),f'{ds_name}_gt', f'{ds_name}_{split}_questions.json')
-                        self.anno_files[split] = os.path.join(registry.get_path("cache_root"), f'{ds_name}_gt', f'{ds_name}_{split}_annotations.json')
-                        if dist_utils.get_rank() == 0:
-                            os.makedirs(os.path.join(registry.get_path("cache_root"),f'{ds_name}_gt'), exist_ok=True)
-                            try:
-                                convert_to_coco_gt(dataset, self.ques_files[split], self.anno_files[split], split, self.sample_id_key)
-                            except:
-                                pass # tasks like vizwiz with no gt answer
+
                 try:
                     self.answer_list = dataset[split].answer_list
                 except AttributeError:
