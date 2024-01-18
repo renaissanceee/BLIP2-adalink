@@ -32,7 +32,7 @@ recommend: torch 2.0.0+cu118
 ```python
 python -m venv env %create
 .\env\Scripts\activate %activate
-(linux)source .\env\Scripts\activate %activate
+(linux)source ./env/bin/activate %activate
 pip install -r requirements.txt
 ```
 ### automatic download
