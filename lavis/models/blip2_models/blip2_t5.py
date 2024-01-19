@@ -54,6 +54,9 @@ class Blip2T5(Blip2Base):
         max_txt_len=32,
         apply_lemmatizer=False,
         rank=16,
+        use_adalink_I=True,
+        use_adalink_T=True,
+
     ):
         """
         apply_lemmatizer: when set to True, postprocess predict_answers() result with lemmas.
@@ -102,7 +105,7 @@ class Blip2T5(Blip2Base):
                 param.requires_grad = False        
         # adalink
         self.rank=rank  # 4,16,64,256
-        self.use_adalink_I,self.use_adalink_T = False, False #True, True  
+        self.use_adalink_I,self.use_adalink_T = use_adalink_I,use_adalink_T #True, True  
         logging.info("adalink rank= {}".format(self.rank))
         self.adalink_I=nn.Sequential(
             nn.Linear(self.t5_model.config.hidden_size,self.rank),# 2048->4
@@ -140,8 +143,7 @@ class Blip2T5(Blip2Base):
             inputs_t5 = inputs_t5 + self.adalink_I(inputs_t5)#[1, 32, 2048]->2048->[1, 32, 2048]  
         atts_t5 = torch.ones(inputs_t5.size()[:-1], dtype=torch.long).to(image.device)
 
-        # with self.maybe_autocast(dtype=torch.bfloat16):
-        with self.maybe_autocast(dtype=torch.float16):
+        with self.maybe_autocast(dtype=torch.bfloat16):
             # print(samples.keys())
             # vqav2 ['image', 'text_input', 'answer', 'weight', 'n_answers', 'epoch', 'num_iters_per_epoch', 'iters']
             # coco_caption ['image', 'text_input', 'image_id', 'epoch', 'num_iters_per_epoch', 'iters']
@@ -190,11 +192,11 @@ class Blip2T5(Blip2Base):
             inputs_embeds = torch.cat([batch_inputs_t5, inputs_embeds], dim=1)# [7, 32+8, 2048] 
 
             outputs = self.t5_model(
-                inputs_embeds=inputs_embeds,
-                attention_mask=encoder_atts,
-                decoder_attention_mask=output_tokens.attention_mask,
+                inputs_embeds=inputs_embeds,# torch.Size([12, 42, 2048])
+                attention_mask=encoder_atts,# torch.Size([12, 42])
+                decoder_attention_mask=output_tokens.attention_mask,# torch.Size([12, 4])
                 return_dict=True,
-                labels=targets,
+                labels=targets,# torch.Size([12, 4])
             )
 
             loss = outputs.loss
@@ -422,7 +424,9 @@ class Blip2T5(Blip2Base):
         max_txt_len = cfg.get("max_txt_len", 32)
 
         apply_lemmatizer = cfg.get("apply_lemmatizer", False)
-
+        use_adalink_I=cfg.get("use_adalink_I", True)
+        use_adalink_T=cfg.get("use_adalink_T", True)
+        
         model = cls(
             vit_model=vit_model,
             q_former_model=q_former_model,
@@ -438,7 +442,9 @@ class Blip2T5(Blip2Base):
             prompt=prompt,
             max_txt_len=max_txt_len,
             apply_lemmatizer=apply_lemmatizer,
-            rank=rank
+            rank=rank,
+            use_adalink_I=use_adalink_I,
+            use_adalink_T=use_adalink_T,
         )
         model.load_checkpoint_from_config(cfg)
 
