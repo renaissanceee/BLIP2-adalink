@@ -47,11 +47,16 @@ class Blip2OPT(Blip2Base):
         use_grad_checkpoint=False,
         vit_precision="fp16",
         freeze_vit=True,
+        freeze_linear=True,
+        freeze_qformer=True,
         num_query_token=32,
         opt_model="facebook/opt-2.7b",
         prompt="",
         max_txt_len=32,
         apply_lemmatizer=False,
+        rank=16,
+        use_adalink_I=True,
+        use_adalink_T=True,
     ):
         """
         apply_lemmatizer: when set to True, postprocess predict_answers() result with lemmas.
@@ -71,16 +76,16 @@ class Blip2OPT(Blip2Base):
             self.visual_encoder = self.visual_encoder.eval()
             self.visual_encoder.train = disabled_train
             logging.info("freeze vision encoder")
-
         self.Qformer, self.query_tokens = self.init_Qformer(
-            num_query_token, self.visual_encoder.num_features
+            num_query_token, self.visual_encoder.num_features, freeze_qformer
         )
-        self.Qformer.cls = None
-        self.Qformer.bert.embeddings.word_embeddings = None
-        self.Qformer.bert.embeddings.position_embeddings = None
-        for layer in self.Qformer.bert.encoder.layer:
-            layer.output = None
-            layer.intermediate = None
+
+        # self.Qformer.cls = None
+        # self.Qformer.bert.embeddings.word_embeddings = None
+        # self.Qformer.bert.embeddings.position_embeddings = None
+        # for layer in self.Qformer.bert.encoder.layer:
+        #     layer.output = None
+        #     layer.intermediate = None
 
         self.opt_tokenizer = AutoTokenizer.from_pretrained(opt_model, use_fast=False)
         self.opt_model = OPTForCausalLM.from_pretrained(
@@ -94,6 +99,21 @@ class Blip2OPT(Blip2Base):
 
         self.opt_proj = nn.Linear(
             self.Qformer.config.hidden_size, self.opt_model.config.hidden_size
+        )
+        if freeze_linear:
+            for param in self.opt_proj.parameters():
+                param.requires_grad = False        
+        # adalink
+        self.rank=rank  # 4,16,64,256
+        self.use_adalink_I,self.use_adalink_T = use_adalink_I,use_adalink_T #True, True  
+        logging.info("adalink rank= {}".format(self.rank))
+        self.adalink_I=nn.Sequential(
+            nn.Linear(self.opt_model.config.hidden_size,self.rank),# 2560->4
+            nn.Linear(self.rank, self.opt_model.config.hidden_size)# 4->2560
+        )
+        self.adalink_T=nn.Sequential(
+            nn.Linear(self.opt_model.config.hidden_size,self.rank),# 2560->4
+            nn.Linear(self.rank, self.opt_model.config.hidden_size)# 4->2560
         )
 
         self.max_txt_len = max_txt_len
@@ -121,45 +141,88 @@ class Blip2OPT(Blip2Base):
         )
 
         inputs_opt = self.opt_proj(query_output.last_hidden_state)
+        if self.use_adalink_I:
+            inputs_opt = inputs_opt + self.adalink_I(inputs_opt)#[1, 32, 2048]->2048->[1, 32, 2048]  
         atts_opt = torch.ones(inputs_opt.size()[:-1], dtype=torch.long).to(image.device)
 
         self.opt_tokenizer.padding_side = "right"
 
-        text = [t + "\n" for t in samples["text_input"]]
+        text = [t + "\n" for t in samples["text_input"]]# 4 questions
+        # ['what type of bird is this?\n', 'what kind of coat might you bring in this room?\n', 'what season is this?\n', 'what are they celebrating?\n']
 
-        opt_tokens = self.opt_tokenizer(
-            text,
-            return_tensors="pt",
-            padding="longest",
-            truncation=True,
-            max_length=self.max_txt_len,
-        ).to(image.device)
+        with self.maybe_autocast(dtype=torch.float16):
+            opt_tokens = self.opt_tokenizer(
+                text,
+                return_tensors="pt",
+                padding="longest",
+                truncation=True,
+                max_length=self.max_txt_len,
+            ).to(image.device)
+            print(opt_tokens.attention_mask.shape)
+            output_tokens = self.opt_tokenizer(
+                samples["answer"],#['balcony', 'porch', 'deck', 'platform', 'tower']
+                #samples["text_output"],
+                #samples["text_input"],
+                padding="longest",
+                truncation=True,
+                max_length=self.max_txt_len,
+                return_tensors="pt",
+            ).to(image.device)# 'input_ids','attention_mask' 全1
+ 
+            # inputs_embeds = self.opt_model.model.decoder.embed_tokens(opt_tokens.input_ids)
 
-        targets = opt_tokens.input_ids.masked_fill(
-            opt_tokens.input_ids == self.opt_tokenizer.pad_token_id, -100
-        )
-        if self.prompt:
-            targets[:, : self.prompt_length] = -100  # do not apply loss to the prompt
+            ##################################
+            batch_input_tokens_input_ids = []
+            batch_input_tokens_atts = []
+            batch_atts_opt = []
+            batch_inputs_opt = []
+            ##[1, 32, 2048]->[7, 32, 2048]
+            for b, n in enumerate(samples["n_answers"]):
+                batch_input_tokens_input_ids += [opt_tokens.input_ids[b]] * n
+                batch_input_tokens_atts += [opt_tokens.attention_mask[b]] * n
+                batch_atts_opt += [atts_opt[b]] * n
+                batch_inputs_opt += [inputs_opt[b]] * n
 
-        empty_targets = (
-            torch.ones(atts_opt.size(), dtype=torch.long).to(image.device).fill_(-100)
-        )
-        targets = torch.cat([empty_targets, targets], dim=1)
+            batch_input_tokens_input_ids = torch.stack(batch_input_tokens_input_ids, dim=0)
+            batch_input_tokens_atts = torch.stack(batch_input_tokens_atts, dim=0)
+            batch_atts_opt = torch.stack(batch_atts_opt, dim=0)
+            batch_inputs_opt = torch.stack(batch_inputs_opt, dim=0)#[9, 32, 2560]
 
-        inputs_embeds = self.opt_model.model.decoder.embed_tokens(opt_tokens.input_ids)
-        inputs_embeds = torch.cat([inputs_opt, inputs_embeds], dim=1)
-        attention_mask = torch.cat([atts_opt, opt_tokens.attention_mask], dim=1)
-
-        with self.maybe_autocast():
-            outputs = self.opt_model(
-                inputs_embeds=inputs_embeds,
-                attention_mask=attention_mask,
-                return_dict=True,
-                labels=targets,
+            targets = output_tokens.input_ids.masked_fill(
+                output_tokens.input_ids == self.opt_tokenizer.pad_token_id, -100
             )
-        loss = outputs.loss
+            if self.prompt:
+                targets[:, : self.prompt_length] = -100  # do not apply loss to the prompt
+            empty_targets = (
+                torch.ones(batch_atts_opt.size(), dtype=torch.long).to(image.device).fill_(-100)
+            )
+            targets = torch.cat([empty_targets, targets], dim=1)#[9,32] [9,4]
+            # print("targets:",targets.shape)
+                
+            inputs_embeds = self.opt_model.model.decoder.embed_tokens(batch_input_tokens_input_ids)#[9, 13, 2560]
 
-        return {"loss": loss}
+            if self.use_adalink_T:
+                inputs_embeds = inputs_embeds + self.adalink_T(inputs_embeds)#[9, 13, 2560]
+            inputs_embeds = torch.cat([batch_inputs_opt, inputs_embeds], dim=1)# [9, 32, 2560] [9, 13, 2560]
+
+            # attention_mask = torch.cat([atts_opt, opt_tokens.attention_mask], dim=1)
+            attention_mask = torch.cat([ batch_atts_opt, batch_input_tokens_atts], dim=1)# [9, 32] and [9, 13]
+
+            outputs = self.opt_model(
+                inputs_embeds=inputs_embeds,#[9, 45, 2560]
+                attention_mask=attention_mask,#[9, 45]
+                return_dict=True,
+                labels=targets,#[9, 36]
+            )
+            loss = outputs.loss
+            # wandb
+            import wandb
+            wandb.login(key="3d3950bf0197bb6a4f59246bd3ddeacd1ae2617d")
+            # wandb.init(project="blip2_okvqa", name="opt")      
+            wandb.init(project="blip2_okvqa", name="opt") 
+            wandb.log({"train_loss": loss})   
+            
+            return {"loss": loss}
 
     @torch.no_grad()
     def generate(
@@ -401,11 +464,15 @@ class Blip2OPT(Blip2Base):
         use_grad_checkpoint = cfg.get("use_grad_checkpoint", False)
         vit_precision = cfg.get("vit_precision", "fp16")
         freeze_vit = cfg.get("freeze_vit", True)
-
+        freeze_linear = cfg.get("freeze_linear", True)
+        freeze_qformer = cfg.get("freeze_qformer", True)
+        rank = cfg.get("ada_rank", 16)
         prompt = cfg.get("prompt", "")
         max_txt_len = cfg.get("max_txt_len", 32)
         
         apply_lemmatizer = cfg.get("apply_lemmatizer", False)
+        use_adalink_I=cfg.get("use_adalink_I", True)
+        use_adalink_T=cfg.get("use_adalink_T", True)
 
         model = cls(
             vit_model=vit_model,
@@ -414,11 +481,16 @@ class Blip2OPT(Blip2Base):
             use_grad_checkpoint=use_grad_checkpoint,
             vit_precision=vit_precision,
             freeze_vit=freeze_vit,
+            freeze_linear=freeze_linear,
+            freeze_qformer=freeze_qformer,
             num_query_token=num_query_token,
             opt_model=opt_model,
             prompt=prompt,
             max_txt_len=max_txt_len,
             apply_lemmatizer=apply_lemmatizer,
+            rank=rank,
+            use_adalink_I=use_adalink_I,
+            use_adalink_T=use_adalink_T,
         )
         model.load_checkpoint_from_config(cfg)
 
