@@ -64,7 +64,7 @@ class Blip2T5(Blip2Base):
         super().__init__()
 
         self.tokenizer = self.init_tokenizer()
-
+        self.wandb_name=""
         self.visual_encoder, self.ln_vision = self.init_vision_encoder(
             vit_model, img_size, drop_path_rate, use_grad_checkpoint, vit_precision
         )
@@ -78,6 +78,9 @@ class Blip2T5(Blip2Base):
         self.Qformer, self.query_tokens = self.init_Qformer(
             num_query_token, self.visual_encoder.num_features, freeze_qformer
         )
+        if not freeze_qformer:
+            self.wandb_name="ft_qformer"
+
         self.load_from_pretrained(url_or_filename=q_former_model)  # load q-former weights here
         # self.Qformer.cls = None
         # self.Qformer.bert.embeddings.word_embeddings = None
@@ -104,17 +107,19 @@ class Blip2T5(Blip2Base):
             for param in self.t5_proj.parameters():
                 param.requires_grad = False        
         # adalink
-        self.rank=rank  # 4,16,64,256
-        self.use_adalink_I,self.use_adalink_T = use_adalink_I,use_adalink_T #True, True  
-        logging.info("adalink rank= {}".format(self.rank))
-        self.adalink_I=nn.Sequential(
-            nn.Linear(self.t5_model.config.hidden_size,self.rank),# 2048->4
-            nn.Linear(self.rank, self.t5_model.config.hidden_size)# 4->2048
-        )
-        self.adalink_T=nn.Sequential(
-            nn.Linear(self.t5_model.config.hidden_size,self.rank),# 2048->4
-            nn.Linear(self.rank, self.t5_model.config.hidden_size)# 4->2048
-        )
+        if use_adalink_I==True and use_adalink_T==True:
+            self.wandb_name="adalink_"+str(rank)
+            self.rank=rank  # 4,16,64,256
+            self.use_adalink_I,self.use_adalink_T = use_adalink_I,use_adalink_T #True, True  
+            logging.info("adalink rank= {}".format(self.rank))
+            self.adalink_I=nn.Sequential(
+                nn.Linear(self.t5_model.config.hidden_size,self.rank),# 2048->4
+                nn.Linear(self.rank, self.t5_model.config.hidden_size)# 4->2048
+            )
+            self.adalink_T=nn.Sequential(
+                nn.Linear(self.t5_model.config.hidden_size,self.rank),# 2048->4
+                nn.Linear(self.rank, self.t5_model.config.hidden_size)# 4->2048
+            )
         self.max_txt_len = max_txt_len
         self.prompt = prompt
 
@@ -147,6 +152,7 @@ class Blip2T5(Blip2Base):
             # print(samples.keys())
             # vqav2 ['image', 'text_input', 'answer', 'weight', 'n_answers', 'epoch', 'num_iters_per_epoch', 'iters']
             # coco_caption ['image', 'text_input', 'image_id', 'epoch', 'num_iters_per_epoch', 'iters']
+
             input_tokens = self.t5_tokenizer(
                 samples["text_input"],#['where are the people standing?']
                 # "a photo of ",
@@ -155,6 +161,7 @@ class Blip2T5(Blip2Base):
                 max_length=self.max_txt_len,
                 return_tensors="pt",
             ).to(image.device)
+            # print(input_tokens.attention_mask.shape)# [4,10]
             output_tokens = self.t5_tokenizer(
                 samples["answer"],#['balcony', 'porch', 'deck', 'platform', 'tower']
                 #samples["text_output"],
@@ -202,9 +209,8 @@ class Blip2T5(Blip2Base):
             loss = outputs.loss
             # wandb
             import wandb
-            wandb.login(key="3d3950bf0197bb6a4f59246bd3ddeacd1ae2617d")
-            # wandb.init(project="blip2_aokvqa", name="base")      
-            wandb.init(project="blip2_okvqa", name="qformer") 
+            wandb.login(key="3d3950bf0197bb6a4f59246bd3ddeacd1ae2617d")     
+            wandb.init(project="blip2_t5_okvqa", name=self.wandb_name) 
             wandb.log({"train_loss": loss})   
             
             return {"loss": loss}
