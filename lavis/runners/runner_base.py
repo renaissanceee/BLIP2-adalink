@@ -421,8 +421,6 @@ class RunnerBase:
 
             dist.barrier()
 
-        #change here to comment# 
-        cur_epoch=0
         # save last checkpoint
         if self.save_last and not self.evaluate_only:
             self._save_checkpoint(cur_epoch, is_best=False)
