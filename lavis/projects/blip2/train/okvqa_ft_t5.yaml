@@ -58,6 +58,6 @@ run:
 
   # distribution-specific
   device: "cuda"
-  world_size: 1
+  world_size: 4
   dist_url: "env://"
-  distributed: False
+  distributed: True

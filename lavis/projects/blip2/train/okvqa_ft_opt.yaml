@@ -36,7 +36,7 @@ run:
   # batch_size_train: 16
   batch_size_train: 4
   batch_size_eval: 8
-  num_workers: 1
+  num_workers: 4
 
   # inference-specific
   max_len: 10
@@ -60,4 +60,4 @@ run:
   device: "cuda"
   world_size: 1
   dist_url: "env://"
-  distributed: False
+  distributed: True
