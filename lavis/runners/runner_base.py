@@ -91,7 +91,6 @@ class RunnerBase:
                     self._wrapped_model = DDP(
                         self._model, device_ids=[self.config.run_cfg.gpu], find_unused_parameters=True
                     )
-                    print(self.config.run_cfg.gpu)
             else:
                 self._wrapped_model = self._model
 
@@ -421,6 +420,14 @@ class RunnerBase:
                 self._save_checkpoint(cur_epoch, is_best=False)
 
             dist.barrier()
+
+            # monitor
+            num_gpus = torch.cuda.device_count()
+            print(f"Number of GPUs available: {num_gpus}")
+
+            for i in range(num_gpus):
+                gpu = torch.cuda.get_device_properties(i)
+                print(f"GPU {i}: {gpu.name}, Memory Usage: {torch.cuda.max_memory_allocated(i) / (1024 ** 3):.2f} GB")
 
         # save last checkpoint
         if self.save_last and not self.evaluate_only:

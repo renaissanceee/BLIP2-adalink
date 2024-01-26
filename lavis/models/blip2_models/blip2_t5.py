@@ -105,7 +105,9 @@ class Blip2T5(Blip2Base):
         )
         if freeze_linear:
             for param in self.t5_proj.parameters():
-                param.requires_grad = False        
+                param.requires_grad = False
+        self.use_adalink_I, self.use_adalink_T = False, False
+        self.adalink_I,self.adalink_T = None, None        
         # adalink
         if use_adalink_I==True and use_adalink_T==True:
             self.wandb_name="adalink_"+str(rank)
