@@ -283,6 +283,8 @@ class Blip2OPT(Blip2Base):
             )
 
             inputs_opt = self.opt_proj(query_output.last_hidden_state)
+            if self.use_adalink_I:
+                inputs_opt = inputs_opt + self.adalink_I(inputs_opt)#[1, 32, 2048]->2048->[1, 32, 2048]  
             atts_opt = torch.ones(inputs_opt.size()[:-1], dtype=torch.long).to(
                 image.device
             )
@@ -305,6 +307,8 @@ class Blip2OPT(Blip2Base):
             
             # new version for transformers>=4.27
             inputs_embeds = self.opt_model.get_input_embeddings()(opt_tokens.input_ids)
+            if self.use_adalink_T:
+                inputs_embeds = inputs_embeds + self.adalink_T(inputs_embeds)#[9, 13, 2560]
             inputs_embeds = torch.cat([inputs_opt,inputs_embeds],dim=1)
             
             outputs = self.opt_model.generate(
@@ -386,6 +390,8 @@ class Blip2OPT(Blip2Base):
             )
 
             inputs_opt = self.opt_proj(query_output.last_hidden_state)
+            if self.use_adalink_I:
+                inputs_opt = inputs_opt + self.adalink_I(inputs_opt)#[1, 32, 2048]->2048->[1, 32, 2048]  
             atts_opt = torch.ones(inputs_opt.size()[:-1], dtype=torch.long).to(
                 image.device
             )
@@ -411,6 +417,8 @@ class Blip2OPT(Blip2Base):
             
             # require transformers>=4.27
             inputs_embeds = self.opt_model.get_input_embeddings()(opt_tokens.input_ids)
+            if self.use_adalink_T:
+                inputs_embeds = inputs_embeds + self.adalink_T(inputs_embeds)#[9, 13, 2560]
             inputs_embeds = torch.cat([inputs_opt,inputs_embeds],dim=1)
             
             outputs = self.opt_model.generate(
