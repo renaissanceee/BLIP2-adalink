@@ -57,6 +57,7 @@ class Blip2OPT(Blip2Base):
         rank=16,
         use_adalink_I=True,
         use_adalink_T=True,
+        use_adalink_qformer=True,
     ):
         """
         apply_lemmatizer: when set to True, postprocess predict_answers() result with lemmas.
@@ -76,6 +77,19 @@ class Blip2OPT(Blip2Base):
             self.visual_encoder = self.visual_encoder.eval()
             self.visual_encoder.train = disabled_train
             logging.info("freeze vision encoder")
+        self.use_adalink_qformer = False
+        self.adalink_qformer = None
+        # adalink
+        if use_adalink_qformer==True:
+            self.wandb_name="ada_qformer_"+str(rank)
+            self.rank=rank  # 4,16,64,256
+            self.use_adalink_qformer = True 
+            logging.info("ada_qformer rank= {}".format(self.rank))
+            # print(self.visual_encoder.num_features)#1408
+            self.adalink_qformer=nn.Sequential(
+                nn.Linear(768,self.rank),# 768->4
+                nn.Linear(self.rank, 768)# 4->768
+            )
         self.Qformer, self.query_tokens = self.init_Qformer(
             num_query_token, self.visual_encoder.num_features, freeze_qformer
         )
@@ -108,19 +122,24 @@ class Blip2OPT(Blip2Base):
         self.use_adalink_I, self.use_adalink_T = False, False
         self.adalink_I,self.adalink_T = None, None
         # adalink
-        if use_adalink_I==True and use_adalink_T==True:
+        if use_adalink_I==True:
             self.wandb_name="adalink_"+str(rank)
             self.rank=rank  # 4,16,64,256
-            self.use_adalink_I,self.use_adalink_T = use_adalink_I,use_adalink_T #True, True  
-            logging.info("adalink rank= {}".format(self.rank))
+            self.use_adalink_I = use_adalink_I #True
             self.adalink_I=nn.Sequential(
-                nn.Linear(self.opt_model.config.hidden_size,self.rank),# 2048->4
-                nn.Linear(self.rank, self.opt_model.config.hidden_size)# 4->2048
-            )
+                nn.Linear(self.t5_model.config.hidden_size,self.rank),# 2048->4
+                nn.Linear(self.rank, self.t5_model.config.hidden_size)# 4->2048
+            )            
+            logging.info("adalink rank= {}".format(self.rank))
+        if use_adalink_T==True:
+            self.wandb_name="adalink_"+str(rank)
+            self.rank=rank
+            self.use_adalink_T = use_adalink_T #True
             self.adalink_T=nn.Sequential(
-                nn.Linear(self.opt_model.config.hidden_size,self.rank),# 2048->4
-                nn.Linear(self.rank, self.opt_model.config.hidden_size)# 4->2048
+                nn.Linear(self.t5_model.config.hidden_size,self.rank),# 2048->4
+                nn.Linear(self.rank, self.t5_model.config.hidden_size)# 4->2048
             )
+            logging.info("adalink rank= {}".format(self.rank))
 
         self.max_txt_len = max_txt_len
         self.prompt = prompt
@@ -134,6 +153,8 @@ class Blip2OPT(Blip2Base):
         image = samples["image"]
         with self.maybe_autocast():
             image_embeds = self.ln_vision(self.visual_encoder(image))
+            if self.use_adalink_qformer==True:
+                image_embeds=image_embeds+self.adalink_qformer(image_embeds)#[196, 768]            
         image_atts = torch.ones(image_embeds.size()[:-1], dtype=torch.long).to(
             image.device
         )
@@ -497,6 +518,7 @@ class Blip2OPT(Blip2Base):
         apply_lemmatizer = cfg.get("apply_lemmatizer", False)
         use_adalink_I=cfg.get("use_adalink_I", True)
         use_adalink_T=cfg.get("use_adalink_T", True)
+        use_adalink_qformer=cfg.get("use_adalink_qformer", False)
 
         model = cls(
             vit_model=vit_model,
@@ -515,6 +537,7 @@ class Blip2OPT(Blip2Base):
             rank=rank,
             use_adalink_I=use_adalink_I,
             use_adalink_T=use_adalink_T,
+            use_adalink_qformer=use_adalink_qformer,
         )
         model.load_checkpoint_from_config(cfg)
 
