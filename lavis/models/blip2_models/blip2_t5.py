@@ -98,14 +98,16 @@ class Blip2T5(Blip2Base):
         
         for name, param in self.t5_model.named_parameters():
             param.requires_grad = False
-            param.data = param.data.bfloat16()
+            param.data = param.data.float()
         # linear_proj for qformer: frozen
         self.t5_proj = nn.Linear(
             self.Qformer.config.hidden_size, self.t5_model.config.hidden_size
         )
         if freeze_linear:
             for param in self.t5_proj.parameters():
-                param.requires_grad = False        
+                param.requires_grad = False
+        self.use_adalink_I, self.use_adalink_T = False, False
+        self.adalink_I, self.adalink_T = None, None
         # adalink
         if use_adalink_I==True and use_adalink_T==True:
             self.wandb_name="adalink_"+str(rank)
@@ -149,6 +151,7 @@ class Blip2T5(Blip2Base):
         atts_t5 = torch.ones(inputs_t5.size()[:-1], dtype=torch.long).to(image.device)
 
         with self.maybe_autocast(dtype=torch.bfloat16):
+        # with torch.cuda.amp.autocast():
             # print(samples.keys())
             # vqav2 ['image', 'text_input', 'answer', 'weight', 'n_answers', 'epoch', 'num_iters_per_epoch', 'iters']
             # coco_caption ['image', 'text_input', 'image_id', 'epoch', 'num_iters_per_epoch', 'iters']
@@ -262,6 +265,8 @@ class Blip2T5(Blip2Base):
         )
 
         inputs_t5 = self.t5_proj(query_output.last_hidden_state)
+        if self.use_adalink_I:
+            inputs_t5 = inputs_t5 + self.adalink_I(inputs_t5)#[1, 32, 2048]->2048->[1, 32, 2048] 
         atts_t5 = torch.ones(inputs_t5.size()[:-1], dtype=torch.long).to(image.device)
 
         if "prompt" in samples.keys():
@@ -283,9 +288,11 @@ class Blip2T5(Blip2Base):
         encoder_atts = torch.cat([atts_t5, input_tokens.attention_mask], dim=1)
 
         with self.maybe_autocast(dtype=torch.bfloat16):
+        # with torch.cuda.amp.autocast():
             inputs_embeds = self.t5_model.encoder.embed_tokens(input_tokens.input_ids)
             inputs_embeds = torch.cat([inputs_t5, inputs_embeds], dim=1)
-
+            if self.use_adalink_T:
+                inputs_embeds = inputs_embeds + self.adalink_T(inputs_embeds)#[7, 8, 2048]
             outputs = self.t5_model.generate(
                 inputs_embeds=inputs_embeds,
                 attention_mask=encoder_atts,
@@ -335,6 +342,8 @@ class Blip2T5(Blip2Base):
         )
 
         inputs_t5 = self.t5_proj(query_output.last_hidden_state)
+        if self.use_adalink_I:
+            inputs_t5 = inputs_t5 + self.adalink_I(inputs_t5)#[1, 32, 2048]->2048->[1, 32, 2048] 
         atts_t5 = torch.ones(inputs_t5.size()[:-1], dtype=torch.long).to(image.device)
 
         if isinstance(samples["text_input"], str):
@@ -351,9 +360,11 @@ class Blip2T5(Blip2Base):
         encoder_atts = torch.cat([atts_t5, input_tokens.attention_mask], dim=1)
 
         with self.maybe_autocast(dtype=torch.bfloat16):
+        # with torch.cuda.amp.autocast():
             inputs_embeds = self.t5_model.encoder.embed_tokens(input_tokens.input_ids)
             inputs_embeds = torch.cat([inputs_t5, inputs_embeds], dim=1)
-
+            if self.use_adalink_T:
+                inputs_embeds = inputs_embeds + self.adalink_T(inputs_embeds)#[7, 8, 2048]
             outputs = self.t5_model.generate(
                 inputs_embeds=inputs_embeds,
                 attention_mask=encoder_atts,
