@@ -1,0 +1,65 @@
+model:
+  arch: blip2_opt
+  model_type: pretrain_opt2.7b
+  load_finetuned: False
+  use_grad_checkpoint: True
+  freeze_vit: True
+  freeze_qformer: False
+  freeze_linear: False
+  ada_rank: 16
+  use_adalink_I: False
+  use_adalink_T: False
+
+
+datasets:
+  ok_vqa: # name of the dataset builder
+    vis_processor:
+        train:
+          name: "blip2_image_train"
+          image_size: 224
+        eval:
+          name: "blip_image_eval"
+          image_size: 224
+    text_processor:
+        train:
+          name: "blip_question"
+        eval:
+          name: "blip_question"
+
+run:
+  task: vqa
+  # optimization-specific
+  lr_sched: "linear_warmup_cosine_lr"
+  init_lr: 3e-5
+  min_lr: 1e-5
+  weight_decay: 0.02
+  max_epoch: 5
+  # batch_size_train: 16
+  batch_size_train: 8
+  batch_size_eval: 8
+  num_workers: 2
+
+  # inference-specific
+  max_len: 10
+  min_len: 1
+  num_beams: 5
+  # num_ans_candidates: 128
+  num_ans_candidates: 96
+  inference_method: "generate"
+
+  seed: 42
+  output_dir: "output_slurm/BLIP2/OKVQA/qformer/opt"
+
+
+  amp: False
+  resume_ckpt_path: lavis/output_slurm/BLIP2/OKVQA/qformer/opt/20240127200/checkpoint_4.pth
+   
+  evaluate: True
+  train_splits: ["train"]
+  test_splits: ["test"]
+
+  # distribution-specific
+  device: "cuda"
+  world_size: 2
+  dist_url: "env://"
+  distributed: True
