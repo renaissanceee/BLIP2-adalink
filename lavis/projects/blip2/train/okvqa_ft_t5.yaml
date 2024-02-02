@@ -4,11 +4,11 @@ model:
   load_finetuned: False
   use_grad_checkpoint: True
   freeze_vit: True
-  freeze_qformer: True
-  freeze_linear: True
+  freeze_qformer: False
+  freeze_linear: False
   ada_rank: 16
-  use_adalink_I: True
-  use_adalink_T: True
+  use_adalink_I: False
+  use_adalink_T: False
 
 datasets:
   ok_vqa: # name of the dataset builder
@@ -34,9 +34,9 @@ run:
   weight_decay: 0.02
   max_epoch: 5
   # batch_size_train: 16
-  batch_size_train: 1
+  batch_size_train: 16
   batch_size_eval: 8
-  num_workers: 4
+  num_workers: 1
 
   # inference-specific
   max_len: 10
@@ -47,10 +47,31 @@ run:
   inference_method: "rank"
 
   seed: 42
-  output_dir: "output/BLIP2/OKVQA/adalink/t5"
+  output_dir: "output/BLIP2/OKVQA/qformer/t5"
+  # output_dir: "output/BLIP2/OKVQA/adalink_16_res"
 
   amp: False
   resume_ckpt_path: null
+  # linear
+  # resume_ckpt_path: "C:/bsd/LAVIS/lavis/output/BLIP2/OKVQA/20240110152/checkpoint_0.pth"
+  # resume_ckpt_path: "C:/bsd/LAVIS/lavis/output/BLIP2/OKVQA/20240110203/checkpoint_1.pth"
+  # resume_ckpt_path: "C:/bsd/LAVIS/lavis/output/BLIP2/OKVQA/20240110211/checkpoint_2.pth"
+  # resume_ckpt_path: "C:/bsd/LAVIS/lavis/output/BLIP2/OKVQA/20240110220/checkpoint_3.pth"
+  # resume_ckpt_path: "C:/bsd/LAVIS/lavis/output/BLIP2/OKVQA/20240111074/checkpoint_4.pth"
+  # adalink_4
+  # resume_ckpt_path: "C:/bsd/LAVIS/lavis/output/BLIP2/OKVQA/20240111213/checkpoint_0.pth"
+  # resume_ckpt_path: "C:/bsd/LAVIS/lavis/output/BLIP2/OKVQA/20240111221/checkpoint_1.pth"
+  # adalink_16
+  # resume_ckpt_path: "C:/bsd/LAVIS/lavis/output/BLIP2/OKVQA/adalink_16/20240114091/checkpoint_0.pth"
+  # resume_ckpt_path: "C:/bsd/LAVIS/lavis/output/BLIP2/OKVQA/adalink_16/20240114095/checkpoint_1.pth"
+  # resume_ckpt_path: "C:/bsd/LAVIS/lavis/output/BLIP2/OKVQA/adalink_16/20240114102/checkpoint_2.pth"
+  # resume_ckpt_path: "C:/bsd/LAVIS/lavis/output/BLIP2/OKVQA/adalink_16/20240114105/checkpoint_3.pth"
+  # resume_ckpt_path: "C:/bsd/LAVIS/lavis/output/BLIP2/OKVQA/adalink_16/20240114113/checkpoint_4.pth"
+  # adalink_16_res
+  # resume_ckpt_path: "C:/bsd/LAVIS/lavis/output/BLIP2/OKVQA/adalink_16_res/20240115135/checkpoint_0.pth"
+
+  
+
    
   evaluate: False
   train_splits: ["train"]
@@ -58,6 +79,6 @@ run:
 
   # distribution-specific
   device: "cuda"
-  world_size: 4
+  world_size: 1
   dist_url: "env://"
-  distributed: True
+  distributed: False
