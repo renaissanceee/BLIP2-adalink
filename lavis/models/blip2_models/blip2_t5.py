@@ -86,8 +86,8 @@ class Blip2T5(Blip2Base):
             logging.info("ada_qformer rank= {}".format(self.rank))
             # print(self.visual_encoder.num_features)#1408
             self.adalink_qformer=nn.Sequential(
-                nn.Linear(768,self.rank),# 768->4
-                nn.Linear(self.rank, 768)# 4->768
+                nn.Linear(self.visual_encoder.num_features,self.rank),# 1408->4
+                nn.Linear(self.rank, self.visual_encoder.num_features)# 4->1408
             )
         self.Qformer, self.query_tokens = self.init_Qformer(
             num_query_token, self.visual_encoder.num_features, freeze_qformer
@@ -133,7 +133,6 @@ class Blip2T5(Blip2Base):
             )            
             logging.info("adalink rank= {}".format(self.rank))
         if use_adalink_T==True:
-            self.wandb_name="adalink_"+str(rank)
             self.rank=rank
             self.use_adalink_T = use_adalink_T #True
             self.adalink_T=nn.Sequential(

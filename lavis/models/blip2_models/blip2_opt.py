@@ -87,8 +87,8 @@ class Blip2OPT(Blip2Base):
             logging.info("ada_qformer rank= {}".format(self.rank))
             # print(self.visual_encoder.num_features)#1408
             self.adalink_qformer=nn.Sequential(
-                nn.Linear(768,self.rank),# 768->4
-                nn.Linear(self.rank, 768)# 4->768
+                nn.Linear(self.visual_encoder.num_features,self.rank),# 1408->4
+                nn.Linear(self.rank, self.visual_encoder.num_features)# 4->1408
             )
         self.Qformer, self.query_tokens = self.init_Qformer(
             num_query_token, self.visual_encoder.num_features, freeze_qformer
@@ -127,17 +127,16 @@ class Blip2OPT(Blip2Base):
             self.rank=rank  # 4,16,64,256
             self.use_adalink_I = use_adalink_I #True
             self.adalink_I=nn.Sequential(
-                nn.Linear(self.t5_model.config.hidden_size,self.rank),# 2048->4
-                nn.Linear(self.rank, self.t5_model.config.hidden_size)# 4->2048
+                nn.Linear(self.opt_model.config.hidden_size,self.rank),# 2048->4
+                nn.Linear(self.rank, self.opt_model.config.hidden_size)# 4->2048
             )            
             logging.info("adalink rank= {}".format(self.rank))
         if use_adalink_T==True:
-            self.wandb_name="adalink_"+str(rank)
             self.rank=rank
             self.use_adalink_T = use_adalink_T #True
             self.adalink_T=nn.Sequential(
-                nn.Linear(self.t5_model.config.hidden_size,self.rank),# 2048->4
-                nn.Linear(self.rank, self.t5_model.config.hidden_size)# 4->2048
+                nn.Linear(self.opt_model.config.hidden_size,self.rank),# 2048->4
+                nn.Linear(self.rank, self.opt_model.config.hidden_size)# 4->2048
             )
             logging.info("adalink rank= {}".format(self.rank))
 
