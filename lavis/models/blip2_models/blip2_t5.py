@@ -234,7 +234,7 @@ class Blip2T5(Blip2Base):
             # wandb
             import wandb
             wandb.login(key="3d3950bf0197bb6a4f59246bd3ddeacd1ae2617d")     
-            wandb.init(project="blip2_t5_okvqa", name=self.wandb_name) 
+            wandb.init(project="blip2_t5_adalink", name=self.wandb_name) 
             wandb.log({"train_loss": loss})   
             
             return {"loss": loss}
