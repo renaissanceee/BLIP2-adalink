@@ -9,5 +9,5 @@
 #SBATCH --error=test_ada_opt.e
 #SBATCH --nodelist=worker-5
 
-source ./env/bin/activate
-python -m torch.distributed.run --nproc_per_node=1 train.py --cfg-path config_blip2/train/okvqa_ft_opt.yaml
+source /home/stud/zhangya/jiameng/BLIP2-adalink/env/bin/activate
+python -m torch.distributed.run --nproc_per_node=1 /home/stud/zhangya/jiameng/BLIP2-adalink/train.py --cfg-path /home/stud/zhangya/jiameng/BLIP2-adalink/config_blip2/train/okvqa_ft_opt.yaml
