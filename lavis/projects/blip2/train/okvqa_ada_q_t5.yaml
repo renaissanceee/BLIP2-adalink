@@ -7,12 +7,12 @@ model:
   freeze_qformer: True
   freeze_linear: True
   ada_rank: 4
-  use_adalink_I: True
-  use_adalink_T: True
-  use_adalink_qformer: False
-  
+  use_adalink_I: False
+  use_adalink_T: False
+  use_adalink_qformer: True
+
 datasets:
-  coco_vqa: # name of the dataset builder
+  ok_vqa: # name of the dataset builder
     vis_processor:
         train:
           name: "blip2_image_train"
@@ -34,9 +34,10 @@ run:
   min_lr: 1e-5
   weight_decay: 0.02
   max_epoch: 5
-  batch_size_train: 8
+  # batch_size_train: 16
+  batch_size_train: 1
   batch_size_eval: 8
-  num_workers: 2
+  num_workers: 4
 
   # inference-specific
   max_len: 10
@@ -47,18 +48,17 @@ run:
   inference_method: "generate"
 
   seed: 42
-  output_dir: "output_slurm/BLIP2/COCO_VQA/adalink/t5"
+  output_dir: "output/BLIP2/OKVQA/ada_qformer/t5/"
 
   amp: False
   resume_ckpt_path: null
    
   evaluate: False
   train_splits: ["train"]
-  valid_splits: ["val"]
   test_splits: ["test"]
 
   # distribution-specific
   device: "cuda"
-  world_size: 2
+  world_size: 4
   dist_url: "env://"
   distributed: True

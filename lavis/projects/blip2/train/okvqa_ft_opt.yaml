@@ -6,9 +6,10 @@ model:
   freeze_vit: True
   freeze_qformer: True
   freeze_linear: True
-  ada_rank: 16
+  ada_rank: 8
   use_adalink_I: True
   use_adalink_T: True
+  use_adalink_qformer: False
   
 datasets:
   ok_vqa: # name of the dataset builder
