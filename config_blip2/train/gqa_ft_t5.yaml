@@ -49,7 +49,7 @@ run:
   inference_method: "generate"
 
   seed: 42
-  output_dir: "output_slurm/BLIP2/GQA/adalink/t5"
+  output_dir: "/nfs/data2/zhangya/blip2_output/GQA/adalink/t5"
 
   amp: False
   resume_ckpt_path: null

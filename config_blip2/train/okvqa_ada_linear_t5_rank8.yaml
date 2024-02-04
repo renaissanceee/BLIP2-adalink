@@ -6,7 +6,7 @@ model:
   freeze_vit: True
   freeze_qformer: True
   freeze_linear: False
-  ada_rank: 4
+  ada_rank: 8
   use_adalink_I: True
   use_adalink_T: True
   use_adalink_qformer: False

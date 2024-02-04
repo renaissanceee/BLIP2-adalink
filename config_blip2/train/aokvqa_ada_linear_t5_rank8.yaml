@@ -6,13 +6,13 @@ model:
   freeze_vit: True
   freeze_qformer: True
   freeze_linear: False
-  ada_rank: 4
+  ada_rank: 8
   use_adalink_I: True
   use_adalink_T: True
   use_adalink_qformer: False
 
 datasets:
-  ok_vqa: # name of the dataset builder
+  aok_vqa: # name of the dataset builder
     vis_processor:
         train:
           name: "blip2_image_train"
@@ -27,7 +27,7 @@ datasets:
           name: "blip_question"
 
 run:
-  task: vqa
+  task: aok_vqa
   # optimization-specific
   lr_sched: "linear_warmup_cosine_lr"
   init_lr: 3e-5
@@ -48,7 +48,7 @@ run:
   inference_method: "generate"
 
   seed: 42
-  output_dir: "/nfs/data2/zhangya/blip2_output/OKVQA/adalink/t5/ada+lin"
+  output_dir: "/nfs/data2/zhangya/blip2_output/AOKVQA/adalink/t5/ada+lin"
 
   amp: False
   resume_ckpt_path: null
